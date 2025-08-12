@@ -1,0 +1,4 @@
+*-info
+.venv
+.terraform
+tfplan
