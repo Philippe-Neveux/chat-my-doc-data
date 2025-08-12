@@ -1,0 +1,106 @@
+---
+- name: Manage Qdrant Docker Container
+  hosts: qdrant
+  become: yes
+  vars:
+    qdrant_container_name: "qdrant"
+    qdrant_port: 6333
+    qdrant_data_dir: "/opt/qdrant/data"
+
+  tasks:
+    - name: Check Qdrant container status
+      community.docker.docker_container_info:
+        name: "{{ qdrant_container_name }}"
+      register: container_info
+      ignore_errors: yes
+
+    - name: Display container status
+      debug:
+        msg: |
+          Container Status: {{ container_info.container.State.Status if container_info.exists else 'Not Found' }}
+          Container Health: {{ container_info.container.State.Health.Status if container_info.exists and container_info.container.State.Health is defined else 'N/A' }}
+          Uptime: {{ container_info.container.State.StartedAt if container_info.exists else 'N/A' }}
+
+    - name: Get Docker container stats
+      shell: docker stats {{ qdrant_container_name }} --no-stream --format "table {{'{{'}}}.Container{{'}}'}}\t{{'{{'}}}.CPUPerc{{'}}'}}\t{{'{{'}}}.MemUsage{{'}}'}}\t{{'{{'}}}.NetIO{{'}}'}}\t{{'{{'}}}.BlockIO{{'}}'}}"
+      register: container_stats
+      changed_when: false
+      when: container_info.exists and container_info.container.State.Status == "running"
+
+    - name: Display container resource usage
+      debug:
+        msg: "{{ container_stats.stdout_lines }}"
+      when: container_info.exists and container_info.container.State.Status == "running"
+
+    - name: Get Qdrant version info
+      uri:
+        url: "http://localhost:{{ qdrant_port }}/"
+        method: GET
+        return_content: yes
+      register: version_info
+      when: container_info.exists and container_info.container.State.Status == "running"
+      ignore_errors: yes
+
+    - name: Display Qdrant version
+      debug:
+        msg: "Qdrant version: {{ version_info.json.version }}"
+      when: version_info is defined and version_info.json is defined
+
+    - name: Get Qdrant health status
+      uri:
+        url: "http://localhost:{{ qdrant_port }}/health"
+        method: GET
+        return_content: yes
+      register: health_info
+      when: container_info.exists and container_info.container.State.Status == "running"
+      ignore_errors: yes
+
+    - name: Display health status
+      debug:
+        msg: "Health Status: {{ health_info.json }}"
+      when: health_info is defined and health_info.json is defined
+
+    - name: Get collections info
+      uri:
+        url: "http://localhost:{{ qdrant_port }}/collections"
+        method: GET
+        return_content: yes
+      register: collections_info
+      when: container_info.exists and container_info.container.State.Status == "running"
+      ignore_errors: yes
+
+    - name: Display collections
+      debug:
+        msg: "Collections: {{ collections_info.json.result.collections }}"
+      when: collections_info is defined and collections_info.json is defined
+
+    - name: Get disk usage for data directory
+      shell: du -sh {{ qdrant_data_dir }}
+      register: disk_usage
+      changed_when: false
+
+    - name: Display disk usage
+      debug:
+        msg: "Qdrant data directory usage: {{ disk_usage.stdout }}"
+
+    - name: Get container logs (last 50 lines)
+      shell: docker logs {{ qdrant_container_name }} --tail 50
+      register: container_logs
+      changed_when: false
+      when: container_info.exists
+
+    - name: Display recent container logs
+      debug:
+        msg: "{{ container_logs.stdout_lines }}"
+      when: container_info.exists
+
+    - name: Show Docker images
+      shell: docker images | grep qdrant
+      register: qdrant_images
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Display Qdrant Docker images
+      debug:
+        msg: "{{ qdrant_images.stdout_lines }}"
+      when: qdrant_images.stdout_lines is defined

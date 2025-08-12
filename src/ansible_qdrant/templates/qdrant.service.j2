@@ -1,0 +1,32 @@
+[Unit]
+Description=Qdrant Vector Database
+After=network.target
+Wants=network.target
+
+[Service]
+Type=exec
+User={{ qdrant_user }}
+Group={{ qdrant_group }}
+ExecStart=/usr/local/bin/qdrant --config-path {{ qdrant_config_dir }}/production.yaml
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=qdrant
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths={{ qdrant_data_dir }} {{ qdrant_log_dir }}
+
+# Resource limits
+LimitNOFILE=65536
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target

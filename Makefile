@@ -40,22 +40,22 @@ tf-fmt:
 
 # Ansible commands
 ansible-requirements:
-	cd src/ansible_qdrant && ansible-galaxy collection install -r requirements.yml
+	cd src/ansible_qdrant && uv run ansible-galaxy collection install -r requirements.yml
 
 ansible-ping:
-	cd src/ansible_qdrant && ansible all -m ping
+	cd src/ansible_qdrant && uv run ansible all -m ping
 
 ansible-deploy:
-	cd src/ansible_qdrant && ansible-playbook deploy-qdrant.yml
+	cd src/ansible_qdrant && uv run ansible-playbook deploy-qdrant.yml
 
 ansible-manage:
-	cd src/ansible_qdrant && ansible-playbook manage-qdrant.yml
+	cd src/ansible_qdrant && uv run ansible-playbook manage-qdrant.yml
 
 ansible-backup:
-	cd src/ansible_qdrant && ansible-playbook backup-qdrant.yml
+	cd src/ansible_qdrant && uv run ansible-playbook backup-qdrant.yml
 
 ansible-syntax:
-	cd src/ansible_qdrant && ansible-playbook --syntax-check deploy-qdrant.yml
+	cd src/ansible_qdrant && uv run ansible-playbook --syntax-check deploy-qdrant.yml
 
 # Combined deployment workflow
 deploy-infra: tf-init tf-plan tf-apply tf-output

@@ -59,6 +59,10 @@ resource "google_compute_instance" "qdrant_vm" {
     }
   }
 
+  metadata = var.ssh_public_key_path != "" ? {
+    ssh-keys = "${var.ssh_user}:${file(var.ssh_public_key_path)}"
+  } : {}
+
   metadata_startup_script = <<-EOF
     #!/bin/bash
     # Format and mount the persistent disk

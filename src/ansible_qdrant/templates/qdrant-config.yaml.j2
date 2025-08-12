@@ -1,0 +1,54 @@
+log_level: INFO
+
+storage:
+  # Path to the directory where Qdrant stores data
+  storage_path: {{ qdrant_data_dir }}
+  
+  # Enable Write-Ahead-Log. 
+  # If set to false, Qdrant will only sync data to disk on collection optimization
+  wal:
+    wal_capacity_mb: 32
+    wal_segments_ahead: 0
+
+service:
+  # Host to bind the service to
+  host: 0.0.0.0
+  # Port to bind the service to
+  http_port: {{ qdrant_port }}
+  grpc_port: {{ qdrant_grpc_port }}
+  
+  # Enable CORS headers
+  enable_cors: true
+  
+  # Maximum request size in bytes
+  max_request_size_mb: 32
+  
+  # Maximum time to wait for request to complete
+  max_timeout_ms: 60000
+
+cluster:
+  # Disable clustering by default for single-node setup
+  enabled: false
+
+# Collection configuration
+collections:
+  # Enable on disk payload storage
+  on_disk_payload: true
+  
+  # HNSW configuration
+  hnsw_config:
+    m: 16
+    ef_construct: 100
+    full_scan_threshold: 10000
+
+# Optimizer configuration  
+optimizer:
+  # Default parameters for collection optimization
+  deleted_threshold: 0.2
+  vacuum_min_vector_number: 1000
+  default_segment_number: 0
+  max_segment_size_kb: 1000000
+  memmap_threshold_kb: 100000
+  indexing_threshold_kb: 20000
+  flush_interval_sec: 5
+  max_optimization_threads: 1

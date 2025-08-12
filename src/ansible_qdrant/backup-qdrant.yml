@@ -1,0 +1,149 @@
+---
+- name: Backup Qdrant Docker Container Data
+  hosts: qdrant
+  become: yes
+  vars:
+    qdrant_container_name: "qdrant"
+    qdrant_data_dir: "/opt/qdrant/data"
+    backup_dir: "/opt/qdrant/backups"
+    backup_retention_days: 7
+    qdrant_port: 6333
+
+  tasks:
+    - name: Create backup directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Check if Qdrant container is running
+      community.docker.docker_container_info:
+        name: "{{ qdrant_container_name }}"
+      register: container_info
+
+    - name: Display container status
+      debug:
+        msg: "Container status: {{ container_info.container.State.Status if container_info.exists else 'Not Found' }}"
+
+    - name: Create snapshot via Qdrant API (if collection specified)
+      uri:
+        url: "http://localhost:{{ qdrant_port }}/collections/{{ collection_name }}/snapshots"
+        method: POST
+        return_content: yes
+      register: snapshot_result
+      when: 
+        - collection_name is defined
+        - container_info.exists
+        - container_info.container.State.Status == "running"
+      ignore_errors: yes
+
+    - name: Display snapshot creation result
+      debug:
+        msg: "Snapshot created: {{ snapshot_result.json }}"
+      when: snapshot_result is defined and snapshot_result.json is defined
+
+    - name: Pause Qdrant container for consistent backup
+      community.docker.docker_container:
+        name: "{{ qdrant_container_name }}"
+        state: stopped
+      when: container_info.exists and pause_for_backup | default(false)
+
+    - name: Create full backup using rsync
+      synchronize:
+        src: "{{ qdrant_data_dir }}/"
+        dest: "{{ backup_dir }}/qdrant-backup-{{ ansible_date_time.epoch }}/"
+        delete: no
+        recursive: yes
+        rsync_opts:
+          - "--exclude=*.lock"
+          - "--exclude=*.tmp"
+      delegate_to: "{{ inventory_hostname }}"
+
+    - name: Start Qdrant container if it was paused
+      community.docker.docker_container:
+        name: "{{ qdrant_container_name }}"
+        state: started
+      when: container_info.exists and pause_for_backup | default(false)
+
+    - name: Create Docker volume backup
+      shell: |
+        docker run --rm \
+          -v {{ qdrant_data_dir }}:/source:ro \
+          -v {{ backup_dir }}:/backup \
+          alpine:latest \
+          tar czf /backup/qdrant-volume-backup-{{ ansible_date_time.epoch }}.tar.gz -C /source .
+      when: create_volume_backup | default(false)
+
+    - name: Get backup size
+      shell: du -sh {{ backup_dir }}/qdrant-backup-{{ ansible_date_time.epoch }}/
+      register: backup_size
+      changed_when: false
+
+    - name: Display backup size
+      debug:
+        msg: "Backup size: {{ backup_size.stdout }}"
+
+    - name: Find old backups
+      find:
+        paths: "{{ backup_dir }}"
+        age: "{{ backup_retention_days }}d"
+        file_type: directory
+        patterns: "qdrant-backup-*"
+      register: old_backups
+
+    - name: Find old volume backups
+      find:
+        paths: "{{ backup_dir }}"
+        age: "{{ backup_retention_days }}d"
+        file_type: file
+        patterns: "qdrant-volume-backup-*.tar.gz"
+      register: old_volume_backups
+
+    - name: Remove old directory backups
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_backups.files }}"
+      when: old_backups.files is defined
+
+    - name: Remove old volume backups
+      file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_volume_backups.files }}"
+      when: old_volume_backups.files is defined
+
+    - name: List current backups
+      find:
+        paths: "{{ backup_dir }}"
+        file_type: directory
+        patterns: "qdrant-backup-*"
+      register: current_backups
+
+    - name: List current volume backups
+      find:
+        paths: "{{ backup_dir }}"
+        file_type: file
+        patterns: "qdrant-volume-backup-*.tar.gz"
+      register: current_volume_backups
+
+    - name: Display backup information
+      debug:
+        msg: |
+          Directory backups: {{ current_backups.files | map(attribute='path') | list }}
+          Volume backups: {{ current_volume_backups.files | map(attribute='path') | list }}
+          Total backups: {{ (current_backups.files | length) + (current_volume_backups.files | length) }}
+
+    - name: Create backup metadata
+      copy:
+        content: |
+          Backup created: {{ ansible_date_time.iso8601 }}
+          Container status: {{ container_info.container.State.Status if container_info.exists else 'Not Found' }}
+          Data directory: {{ qdrant_data_dir }}
+          Backup method: rsync
+          {% if snapshot_result is defined %}
+          API snapshot: {{ snapshot_result.json | default('Failed') }}
+          {% endif %}
+        dest: "{{ backup_dir }}/qdrant-backup-{{ ansible_date_time.epoch }}/backup-metadata.txt"

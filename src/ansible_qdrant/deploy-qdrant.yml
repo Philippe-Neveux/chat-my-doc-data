@@ -1,0 +1,183 @@
+---
+- name: Deploy Qdrant Vector Database with Docker
+  hosts: qdrant
+  become: yes
+  vars:
+    qdrant_image: "qdrant/qdrant:latest"
+    qdrant_container_name: "qdrant"
+    qdrant_port: 6333
+    qdrant_grpc_port: 6334
+    qdrant_data_dir: "/opt/qdrant/data"
+    qdrant_config_dir: "/opt/qdrant/config"
+    docker_compose_dir: "/opt/qdrant"
+
+  tasks:
+    - name: Update package cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 86400
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ubuntu user to docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: Create qdrant directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - "{{ docker_compose_dir }}"
+        - "{{ qdrant_data_dir }}"
+        - "{{ qdrant_config_dir }}"
+
+    - name: Set proper permissions for data directory
+      file:
+        path: "{{ qdrant_data_dir }}"
+        owner: 1000
+        group: 1000
+        mode: '0755'
+        recurse: yes
+
+    - name: Create Qdrant configuration file
+      template:
+        src: qdrant-config.yaml.j2
+        dest: "{{ qdrant_config_dir }}/production.yaml"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart qdrant container
+
+    - name: Create docker-compose.yml file
+      template:
+        src: docker-compose.yml.j2
+        dest: "{{ docker_compose_dir }}/docker-compose.yml"
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart qdrant container
+
+    - name: Pull Qdrant Docker image
+      community.docker.docker_image:
+        name: "{{ qdrant_image }}"
+        source: pull
+
+    - name: Stop existing Qdrant container if running
+      community.docker.docker_container:
+        name: "{{ qdrant_container_name }}"
+        state: stopped
+      ignore_errors: yes
+
+    - name: Remove existing Qdrant container
+      community.docker.docker_container:
+        name: "{{ qdrant_container_name }}"
+        state: absent
+      ignore_errors: yes
+
+    - name: Start Qdrant container
+      community.docker.docker_container:
+        name: "{{ qdrant_container_name }}"
+        image: "{{ qdrant_image }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "{{ qdrant_port }}:6333"
+          - "{{ qdrant_grpc_port }}:6334"
+        volumes:
+          - "{{ qdrant_data_dir }}:/qdrant/storage:rw"
+          - "{{ qdrant_config_dir }}/production.yaml:/qdrant/config/production.yaml:ro"
+        env:
+          QDRANT__SERVICE__HTTP_PORT: "6333"
+          QDRANT__SERVICE__GRPC_PORT: "6334"
+
+    - name: Wait for Qdrant to start
+      wait_for:
+        port: "{{ qdrant_port }}"
+        host: localhost
+        delay: 10
+        timeout: 60
+
+    - name: Check container logs for debugging
+      shell: docker logs {{ qdrant_container_name }} --tail 20
+      register: container_logs
+      changed_when: false
+
+    - name: Display container logs
+      debug:
+        msg: "Container logs: {{ container_logs.stdout_lines }}"
+
+    - name: Check if container is actually running
+      community.docker.docker_container_info:
+        name: "{{ qdrant_container_name }}"
+      register: container_status
+
+    - name: Display container status
+      debug:
+        msg: "Container running: {{ container_status.container.State.Running if container_status.exists else 'Container not found' }}"
+
+    - name: Test basic connectivity first
+      uri:
+        url: "http://localhost:{{ qdrant_port }}/"
+        method: GET
+        return_content: yes
+        timeout: 10
+      register: basic_check
+      retries: 3
+      delay: 10
+      ignore_errors: yes
+
+    - name: Display container info
+      community.docker.docker_container_info:
+        name: "{{ qdrant_container_name }}"
+      register: container_info
+
+    - name: Show container status
+      debug:
+        msg: "Qdrant container status: {{ container_info.container.State.Status }}"
+
+  handlers:
+    - name: restart qdrant container
+      community.docker.docker_container:
+        name: "{{ qdrant_container_name }}"
+        state: started
+        restart: yes

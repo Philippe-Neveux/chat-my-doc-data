@@ -46,6 +46,12 @@ variable "ssh_user" {
   default     = "ubuntu"
 }
 
+variable "ssh_public_key_path" {
+  description = "Path to the SSH public key file (use absolute path)"
+  type        = string
+  default     = ""
+}
+
 variable "environment" {
   description = "Environment label"
   type        = string
