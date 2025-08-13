@@ -3,3 +3,6 @@
 .terraform
 tfplan
 data/
+.__pycache__
+*.pyc
+*-info
