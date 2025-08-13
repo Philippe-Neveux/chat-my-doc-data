@@ -1,5 +1,8 @@
 data:
-	uv run python src/chat_my_doc_app/main.py process-imdb-data
+	uv run python src/chat_my_doc_data/main.py
+
+push-doc-to-db:
+	uv run python src/chat_my_doc_data/push_doc_to_db.py
 
 test:
 	uv run pytest -v --cov=src --cov-report=html --cov-report=term

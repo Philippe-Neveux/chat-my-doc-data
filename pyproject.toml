@@ -6,8 +6,24 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "ansible>=11.8.0",
+    "gcsfs>=2025.7.0",
+    "google-cloud-storage>=3.3.0",
+    "loguru>=0.7.3",
     "polars>=1.32.2",
+    "pyarrow>=21.0.0",
+    "qdrant-client>=1.15.1",
+    "sentence-transformers>=5.1.0",
     "typer>=0.16.0",
+]
+
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+    "notebook>=7.4.5",
+    "pandas>=2.3.1",
+    "pytest>=8.4.1",
+    "ruff>=0.12.8",
 ]
 
 [tool.uv]
@@ -26,9 +42,3 @@ addopts = [
     "--cov-report=html",
 ]
 
-[dependency-groups]
-dev = [
-    "mypy>=1.17.1",
-    "pytest>=8.4.1",
-    "ruff>=0.12.8",
-]
