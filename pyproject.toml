@@ -1,7 +1,7 @@
 [project]
 name = "chat-my-doc-data"
 version = "0.1.0"
-description = "Add your description here"
+description = "A data processing pipeline for IMDB movie reviews that extracts, transforms, and loads data into a Qdrant vector database for semantic search and RAG applications."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

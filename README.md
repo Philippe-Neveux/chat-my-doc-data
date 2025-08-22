@@ -2,6 +2,10 @@
 
 A data processing pipeline for IMDB movie reviews that extracts, transforms, and loads data into a Qdrant vector database for semantic search and RAG applications.
 
+
+![Qdrant_Dashboard](./docs/Qdrant_Dashboard.png)
+
+
 ## ✨ Features
 
 - 📊 **Data Processing**: Load and transform IMDB movie reviews from Google Cloud Storage
@@ -46,6 +50,7 @@ A data processing pipeline for IMDB movie reviews that extracts, transforms, and
 │   │   ├── backend.tf
 │   │   └── terraform.tfvars
 │   └── notebooks/
+│       ├── data_analysis.ipynb       # Data exploration and analysis
 │       ├── qdrant_imdb.ipynb
 │       └── qdrant_tuto.ipynb
 ├── tests/
@@ -110,6 +115,22 @@ db.upload_documents(
 )
 ```
 
+### Data Analysis
+
+Explore the dataset interactively using Jupyter notebooks:
+
+```bash
+# Start Jupyter server
+uv run jupyter notebook
+
+# Navigate to src/notebooks/data_analysis.ipynb for dataset exploration
+```
+
+The `data_analysis.ipynb` notebook provides insights into the IMDB movie reviews dataset, including:
+- Dataset structure and statistics
+- Movie titles and genres analysis
+- Review text exploration
+
 ## 🛠️ Development
 
 ### Testing
@@ -145,8 +166,7 @@ uv run mypy src/
 ### Google Cloud Storage
 
 The pipeline reads data from GCS by default:
-- List file: `gs://rag-open-data/imdb/raw/IMDB_List.csv`
-- Reviews file: `gs://rag-open-data/imdb/raw/IMDB_Reviews.csv`
+- Reviews file: `gs://rag-open-data/imdb/standard/imdb_reviews.parquet`
 
 ### Qdrant Configuration
 
@@ -157,18 +177,21 @@ For production deployment, see `src/ansible_qdrant/` for automated setup.
 ## 📦 Dependencies
 
 ### Core Dependencies
-- `polars` - Fast DataFrame library
-- `qdrant-client` - Vector database client
-- `sentence-transformers` - Embedding generation
-- `google-cloud-storage` - GCS integration
+- `polars` - Fast DataFrame library for data processing
+- `qdrant-client` - Vector database client for similarity search
+- `sentence-transformers` - Embedding generation for semantic search
+- `google-cloud-storage` & `gcsfs` - Google Cloud Storage integration
 - `loguru` - Structured logging
 - `typer` - CLI framework
+- `ansible` - Infrastructure automation and deployment
 
 ### Development Dependencies
 - `pytest` - Testing framework
 - `pytest-cov` - Coverage reporting
 - `mypy` - Type checking
 - `ruff` - Linting and formatting
+- `notebook` - Jupyter notebook support
+- `pandas` - Additional data analysis tools
 
 ## 🏗️ Infrastructure
 
