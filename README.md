@@ -14,6 +14,11 @@ A data processing pipeline for IMDB movie reviews that extracts, transforms, and
 - ☁️ **Cloud Integration**: Read from and write to Google Cloud Storage
 - 🧪 **Testing**: Comprehensive test suite with 79% code coverage
 
+## Architecture
+
+![architecture](docs/chat_my_doc_archi.png)
+
+
 ## 📁 Project Structure
 
 ```
